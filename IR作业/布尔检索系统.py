@@ -39,7 +39,7 @@ def get_tokens(query):
     tokens = []  # tokens中的元素类型为(token, token类型)
     for token in re.finditer(lexer, query):
         tokens.append((token.group(), token.lastgroup))
-    print(tokens)
+    #print(tokens)
     return tokens
 #创建一个字典类型记录符号权重
 token_powr = {'WORD':0,'NOT':3,'AND':2,'OR':1}
@@ -53,8 +53,7 @@ class BoolRetrieval:
 #sssssssss
     def __init__(self, index_path=''):
         if index_path == '':
-            self.index = defaultdict(list)
-            self.f_index = defaultdict(list)
+            self.index = {}
         # 已有构建好的索引文件
         else:
             data = np.load(index_path, allow_pickle=True)
@@ -65,24 +64,25 @@ class BoolRetrieval:
 
     def build_index(self, text_dir):
         self.files = get_files(text_dir)  # 获取所有文件名
+        self.index = {}
         for num in range(0, len(self.files)):
             f = open(self.files[num])
             text = f.read()
             words = get_words(text)  # 分词
             # 构建倒排索引
+            count = 0
             for word in words:
-                count = 0
-                count =count +1
-                self.f_index[word].append(count)
-                self.index[word].append(num)
-
+                self.index.setdefault(word,{})
+                self.index[word].setdefault(num,[])
+                self.index[word][num].append(count)
+                count = count +1
         print(self.files, self.index)
         print(self.index)
-        np.savez('index.npz', files=self.files, index=self.index,f_index=self.f_index)
+        np.savez('index.npz', files=self.files, index=self.index)
 
     def search(self, query):
         self.query_tokens = get_tokens(query)  # 获取查询的tokens
-        print(self.query_tokens)
+        #print(self.query_tokens)
         result = []
         # 将查询得到的文件ID转换成文件名
         for num in self.evaluate(0, len(self.query_tokens) - 1):
@@ -204,8 +204,8 @@ class BoolRetrieval:
         return result
 #创建布尔检索类对象¶
 #第一次需要调用build_index()函数创建索引，之后可直接用索引文件进行初始化
-br = BoolRetrieval()
-br.build_index('text')
+#br = BoolRetrieval()
+#br.build_index('text')
 br = BoolRetrieval('index.npz')
 br.files
 br.index
