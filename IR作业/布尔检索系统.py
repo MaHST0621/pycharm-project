@@ -32,17 +32,18 @@ token_word = r'(?P<WORD>[a-zA-Z]+)'
 token_and = r'(?P<AND>&&)'
 token_lp = r'(?P<LP>\()'
 token_rp = r'(?P<RP>\))'
+token_yy = r'(?P<YY>\")'
 lexer = re.compile('|'.join([token_or, token_not, token_word,
-                            token_and, token_lp, token_rp]))  # 编译正则表达式
+                            token_and, token_lp, token_rp,token_yy]))  # 编译正则表达式
 # 用编译好的正则表达式进行词法分析
 def get_tokens(query):
     tokens = []  # tokens中的元素类型为(token, token类型)
     for token in re.finditer(lexer, query):
         tokens.append((token.group(), token.lastgroup))
-    #print(tokens)
+    print(tokens)
     return tokens
 #创建一个字典类型记录符号权重
-token_powr = {'WORD':0,'NOT':3,'AND':2,'OR':1}
+token_powr = {'WORD':0,'NOT':3,'AND':2,'OR':1,'YY':0}
 
 
 class BoolRetrieval:
@@ -51,33 +52,49 @@ class BoolRetrieval:
     index为字典类型，其键为单词，值为文件ID列表，如{"word": [1, 2, 9], ...}
     """
 #sssssssss
-    def __init__(self, index_path=''):
+    def __init__(self, index_path='',index_double_path=''):
         if index_path == '':
             self.index = {}
-        # 已有构建好的索引文件
         else:
             data = np.load(index_path, allow_pickle=True)
             self.files = data['files'][()]
             self.index = data['index'][()]
+
+        if index_double_path == '':
+            self.index_double = {}
+        else:
+            data = np.load(index_double_path, allow_pickle=True)
+            self.index_double = data['index_double'][()]
+
         self.query_tokens = []
         print(self.query_tokens)
 
     def build_index(self, text_dir):
         self.files = get_files(text_dir)  # 获取所有文件名
-        self.index = {}
         for num in range(0, len(self.files)):
             f = open(self.files[num])
             text = f.read()
             words = get_words(text)  # 分词
             # 构建倒排索引
             count = 0
+            list_1 = []
+            #通过dict.setdefault(key,value)函数来构造双字典加列表嵌套模型
             for word in words:
                 self.index.setdefault(word,{})
                 self.index[word].setdefault(num,[])
                 self.index[word][num].append(count)
                 count = count +1
+            for word in range(0,len(words)-1):
+                list_1.append((words[word],words[word+1]))
+            for word in range(0,len(list_1)):
+                d = ' '.join(list_1[word])
+                self.index_double.setdefault(d,{})
+                self.index_double[d].setdefault(num,[])
+                self.index_double[d][num].append(word)
+        print(self.index_double)
         print(self.files, self.index)
         print(self.index)
+        np.savez('index_double.npz',index_double = self.index_double)
         np.savez('index.npz', files=self.files, index=self.index)
 
     def search(self, query):
@@ -89,9 +106,42 @@ class BoolRetrieval:
             result.append(self.files[num])
         return result
 
-    def phrase_search(self,p,q):
-        print('先放着吧')
+    # def phrase_dict_retr(self, biword, dict):
+    #     if biword not in self.
 
+    def phrase_search(self,p,q):
+        #self.query_tokens = get_tokens(query)
+        result_4 = []
+        result = []
+        result_2 = []
+        result_0 = []
+        result_1 = set()
+        while(p!=q):
+            result_4.append((self.query_tokens[p][0],self.query_tokens[p+1][0]))
+            p = p+1
+        for num in range(0,len(result_4)):
+            b = ' '.join(result_4[num])
+            result_0.append(b)
+        for num in result_0:
+            # result3 = set(self.index_double[num])
+            result3 = set(self.index_double.get(num,[]))
+            result_2.append(result3)
+        d = result_2[0]
+        for i in range(1,len(result_2)):
+            d = d&result_2[i]
+            if len(d) == 0:
+                return []
+        # print(d)
+        # print(result_0)
+        for t in d:
+            value = self.index_double[result_0[0]][t]
+            for i in range (1,len(result_0)):
+                k = self.index_double[result_0[i]][t]
+                value = (i + 1 for i in value)
+                value = list(set(k) & set(value))
+            if len(value) != 0:
+                result.append(t)
+        return result
     # 递归解析布尔表达式，p、q为子表达式左右边界的下标
     def evaluate(self, p, q):
         # 解析错误
@@ -101,11 +151,12 @@ class BoolRetrieval:
         elif p == q:
             #print(self.query_tokens[p][0])
             #print(self.query_tokens[p][1])
-            return self.index[self.query_tokens[p][0]]
+            return self.index.get(self.query_tokens[p][0],[])
         # 去掉外层括号
         elif self.check_parentheses(p, q):
             return self.evaluate(p + 1, q - 1)
         elif self.chek_quotation(p,q):
+            #print("i am called")
             return self.phrase_search(p+1,q-1)
         else:
             op = self.find_operator(p, q)
@@ -117,31 +168,36 @@ class BoolRetrieval:
             else:
                 files1 = self.evaluate(p, op - 1)
             files2 = self.evaluate(op + 1, q)
-            #print(self.merge(files1,files2,self.query_tokens[op][1]))
+            print(self.merge(files1,files2,self.query_tokens[op][1]))
             return self.merge(files1, files2, self.query_tokens[op][1])
         #sssssss
 
-#检查双引号里面
+#检查双引号里面是否有其它的符号
     def chek_expr1(self,p,q):
+        count = 0
         for i in range(p,q+1):
-            if self.query_tokens[i][0] != 'WORD':
-                return False
+            if self.query_tokens[i][1] != 'WORD':
+                count = count + 1
+        if count != 0:
+            return False
+        return True
 #先确定除了两端意外的token_WORD,再检查两端是不是双引号
     def chek_quotation(self,p,q):
         if self.chek_expr1(p+1,q-1):
-            if self.query_tokens[p][0] == '"' and self.query_tokens[q+1][0] == '"':
+            if self.query_tokens[p][1] == 'YY' and self.query_tokens[q][1] == 'YY':
                 return True
             else:
                 return False
+        return False
 
     # 判断表达式是否为 (expr)
     # 判断表达式是否为 (expr)
     def chek_expr(self, p, q):
         count = 0
         for i in range(p, q + 1):
-            if self.query_tokens[i][0] == '(':
+            if self.query_tokens[i][1] == 'LP':
                 count += 1
-            elif self.query_tokens[i][0] == ')':
+            elif self.query_tokens[i][1] == 'RP':
                 count -= 1
             # 只要最后count等于0就可以判定输入合法，但先’））‘后‘（（’这种情况最后count等于零，所以在循环过程中判定count是否小于0
             if count < 0:
@@ -153,13 +209,13 @@ class BoolRetrieval:
             return True
 
     def check_parentheses(self, p, q):
-        if self.chek_expr(p, q):
-            if self.query_tokens[p][0] == '(' and self.query_tokens[q][0] == ')':
-                return True
-            else:
-                return False
-        else:
+        if not self.chek_expr(p, q):
             raise Exception
+        if self.query_tokens[p][1] == 'LP' and self.query_tokens[q][1] == 'RP':
+            if self.chek_expr(p+1,q-1):
+                return True
+        return False
+
 
     # 寻找表达式的dominant的运算符（优先级最低）
     def find_operator(self, p, q):
@@ -172,10 +228,10 @@ class BoolRetrieval:
         max_index = -1
         count = 0
         for i in range(p, q + 1):
-            if self.query_tokens[i][1] == '(':
+            if self.query_tokens[i][1] == 'LP':
                 count += 1
                 continue
-            if self.query_tokens[i][1] == ')':
+            if self.query_tokens[i][1] == 'RP':
                 count -= 1
                 continue
             if count != 0:
@@ -204,14 +260,17 @@ class BoolRetrieval:
         return result
 #创建布尔检索类对象¶
 #第一次需要调用build_index()函数创建索引，之后可直接用索引文件进行初始化
-#br = BoolRetrieval()
-#br.build_index('text')
-br = BoolRetrieval('index.npz')
+br = BoolRetrieval()
+br.build_index('text')
+br = BoolRetrieval('index.npz','index_double.npz')
 br.files
 br.index
+
 while True:
-    try:
-        query = input("请输入与查询（与&&，或||，非！）：")
-        print(br.search(query))
-    except:
-        print('请检查你的输入格式,重新输入')
+    # try:
+    #     query = input("请输入与查询（与&&，或||，非！）：")
+    #     print(br.search(query))
+    # except(Exception):
+    #     print('请检查你的输入格式,重新输入')
+    query = input("请输入与查询（与&&，或||，非！）：")
+    print(br.search(query))
