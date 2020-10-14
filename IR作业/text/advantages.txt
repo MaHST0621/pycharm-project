@@ -1,5 +1,0 @@
-fuck-th,
-Advantages
-Clean formalism
-Easy to implement
-Intuitive concept
