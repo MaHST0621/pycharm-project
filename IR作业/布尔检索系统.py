@@ -33,8 +33,10 @@ token_and = r'(?P<AND>&&)'
 token_lp = r'(?P<LP>\()'
 token_rp = r'(?P<RP>\))'
 token_yy = r'(?P<YY>\")'
+token_dd = r'(?P<DD>\,)'
+token_di = r'(?P<DI>\.)'
 lexer = re.compile('|'.join([token_or, token_not, token_word,
-                            token_and, token_lp, token_rp,token_yy]))  # 编译正则表达式
+                            token_and, token_lp, token_rp,token_yy,token_dd,token_di]))  # 编译正则表达式
 # 用编译好的正则表达式进行词法分析
 def get_tokens(query):
     tokens = []  # tokens中的元素类型为(token, token类型)
@@ -43,7 +45,7 @@ def get_tokens(query):
     print(tokens)
     return tokens
 #创建一个字典类型记录符号权重
-token_powr = {'WORD':0,'NOT':3,'AND':2,'OR':1,'YY':0}
+token_powr = {'WORD':0,'NOT':3,'AND':2,'OR':1,'YY':0,'DD':0,'DI':0}
 
 
 class BoolRetrieval:
@@ -176,18 +178,16 @@ class BoolRetrieval:
     def chek_expr1(self,p,q):
         count = 0
         for i in range(p,q+1):
-            if self.query_tokens[i][1] != 'WORD':
+            if self.query_tokens[i][1] in ['OR','AND','NOT','YY']:
                 count = count + 1
         if count != 0:
-            return False
+            raise Exception
         return True
 #先确定除了两端意外的token_WORD,再检查两端是不是双引号
     def chek_quotation(self,p,q):
-        if self.chek_expr1(p+1,q-1):
-            if self.query_tokens[p][1] == 'YY' and self.query_tokens[q][1] == 'YY':
+        if self.query_tokens[p][1] == 'YY' and self.query_tokens[q][1] == 'YY':
+            if self.chek_expr1(p+1,q-1):
                 return True
-            else:
-                return False
         return False
 
     # 判断表达式是否为 (expr)
@@ -267,10 +267,9 @@ br.files
 br.index
 
 while True:
-    # try:
-    #     query = input("请输入与查询（与&&，或||，非！）：")
-    #     print(br.search(query))
-    # except(Exception):
-    #     print('请检查你的输入格式,重新输入')
-    query = input("请输入与查询（与&&，或||，非！）：")
-    print(br.search(query))
+     try:
+         query = input("请输入与查询（与&&，或||，非！）：")
+         print(br.search(query))
+     except(Exception):
+         print('请检查你的输入格式,重新输入')
+
