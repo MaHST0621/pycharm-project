@@ -55,7 +55,7 @@ class BoolRetrieval:
     index为字典类型，其键为单词，值为文件ID列表，如{"word": [1, 2, 9], ...}
     """
 #sssssssss
-    def __init__(self, index_path='',index_double_path='',index_k_path=''):
+    def __init__(self, index_path='',index_double_path='',index_k_path='',index_soundex_path=''):
         if index_path == '':
             self.index = {}
         else:
@@ -75,8 +75,13 @@ class BoolRetrieval:
             data = np.load(index_k_path, allow_pickle=True)
             self.index_k = data['index_k'][()]
 
+        if index_soundex_path == '':
+            self.index_soundex = {}
+        else:
+            data = np.load(index_soundex_path, allow_pickle=True)
+            self.index_soundex = data['index_soundex'][()]
+
         self.query_tokens = []
-        print(self.query_tokens)
 
     def build_index(self, text_dir):
         self.files = get_files(text_dir)  # 获取所有文件名
@@ -102,10 +107,16 @@ class BoolRetrieval:
                 self.index_double[d][num].append(word)
             for word in words:
                 self.index_k_punch(word)
+            for word in words:
+                self.index_soundex.setdefault(self.make_soundex(word),[])
+                self.index_soundex[self.make_soundex(word)].append(word)
         # print(self.index_double)
         # print(self.files, self.index)
         # print(self.index)
-        print(self.index_k)
+        #print(self.index_k)
+        # print(self.index_soundex)
+        # print(self.index_soundex['b000'])
+        np.savez('index_soundex.npz', index_soundex=self.index_soundex)
         np.savez('index_k.npz', index_k=self.index_k)
         np.savez('index_double.npz',index_double = self.index_double)
         np.savez('index.npz', files=self.files, index=self.index)
@@ -159,15 +170,45 @@ class BoolRetrieval:
         #print('i am colled')
         result = self.k_punch(query)
         result_k = []
-        print(result)
+        #print(result)
         for i in range (0,len(result)):
             result_k.append(self.index_k.get(result[i],[]))
         result_k = sum(result_k,[])
         result_k = list(set(result_k))
-        d = []
-        for i in self.jacarrd_k(query,result_k):
-            d.append(self.make_soundex(i))
-        return d
+        a = self.distance_k(query,self.jacarrd_k(query,result_k))
+        # print(a)
+        # print(self.make_soundex(query))
+        #print(self.index_soundex['b000'])
+        if self.make_soundex(query) in self.index_soundex:
+            b = self.index_soundex[self.make_soundex(query)]
+        else:
+            b = []
+        print(b)
+        return a+b
+    def distance_k(self,token,list):
+        arry_k = []
+        for word in list:
+            a = len(token)
+            b = len(word)
+            arry = []
+            for i in range(0, a+1):
+                arry.append([])
+                for j in range(0, b+1):
+                    arry[i].append(0)
+            for i in range(1,a+1):
+                arry[i][0] = i
+            for j in range(1,b+1):
+                arry[0][j] = j
+            for i in range(1,a+1):
+                for j in range(1, b + 1):
+                    if token[i-1] == word[j-1]:
+                        arry[i][j] = arry[i-1][j-1]
+                    else:
+                        arry[i][j] = min(arry[i-1][j-1],arry[i-1][j],arry[i][j-1])+1
+            if arry[a][b] <= 2:
+                arry_k.append(word)
+        #print(arry_k)
+        return arry_k
     def make_soundex(self,token_k):
         token = []
         token_k = list(token_k)
@@ -205,9 +246,13 @@ class BoolRetrieval:
         for num in self.evaluate(0, len(self.query_tokens) - 1):
             result.append(self.files[num])
         if result == []:
-            list1 = self.pc_soundex(self.query_tokens[0][0])
-            print('搜索的token不存在,您要搜索的或许是这些：', list1)
-        return result
+            if len(self.query_tokens) == 1:
+                list1 = self.pc_soundex(self.query_tokens[0][0])
+                print('搜索的token不存在,您要搜索的或许是这些：', list1)
+            else:
+                return
+        else:
+            return result
 
     # def phrase_dict_retr(self, biword, dict):
     #     if biword not in self.
@@ -365,7 +410,7 @@ class BoolRetrieval:
 #第一次需要调用build_index()函数创建索引，之后可直接用索引文件进行初始化
 br = BoolRetrieval()
 br.build_index('text')
-br = BoolRetrieval('index.npz','index_double.npz','index_k.npz')
+br = BoolRetrieval('index.npz','index_double.npz','index_k.npz','index_soundex.npz')
 br.files
 br.index
 
