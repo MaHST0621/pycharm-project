@@ -88,12 +88,93 @@ for num in range(0,len(lins)):
     dict1.append(d)
 print(dict1)
 print(lins)
+
+index_k = {}
+words = ['text','txt','ppt','to','ppa','pap','ppq','token','top']
+result = []
+for word in words:
+    if len(word) >= 2:
+        word = '$' + word + '$'
+        for i in range(0, len(word) - 1):
+            word_k = word[i:i + 2]
+            result.append(word_k)
+        for i in range(0, len(word) - 2):
+            word_k = word[i:i + 3]
+            result.append(word_k)
+d = set(result)
+print(index_k)
+print(d)
+
+list1 = ['$op','opt','pt$']
+list2 = ['$op','sad']
+temp = [c for c in list1 if c in list2]
+temp_j = len(temp)/len((list1)+(list2)-(temp))
+print(temp_j)
+
+key_value = {}
+
+# 初始化
+# key_value[2] = 56
+# key_value[1] = 2
+# key_value[5] = 12
+# key_value[4] = 24
+# key_value[6] = 18
+# key_value[3] = 323
+key_value = {1:2,2:23,5:12,4:24,6:18,3:0}
+print("按键(key)排序:")
+
+# sorted(key_value) 返回重新排序的列表
+# 字典按键排序
+key_value = sorted(key_value.items(), key = lambda kc:kc[1],reverse=True)
+b = []
+for i in range (0,len(key_value[:3])):
+    b.append(key_value[i][0])
+print(key_value)
+print(b)
+
+list_1 = ['sad','asadsddd','aasddad','s','adasd','ss','s']
+list_2 = []
+len_k=len(list_1)
+token = 'asdd'
+for i in range(0,len(list_1)):
+    if abs(len(token) - len(list_1[i])) <3 :
+        list_2.append(list_1[i])
+list_1 = list_2
+print(list_1)
 '''
-list1 = [25,1,28,5]
-i = 5
-if i in [5,25,,78]:
-    i = i + 2
-print(i)
+token_k = 'haersadfman'
+token_k = list(token_k)
+token = []
+for i in range(0,len(token_k)):
+    if token_k[i] != token_k[i-1]:
+        token.append(token_k[i])
+for i in range (1,len(token)):
+    if token[i] in ['a','e','i','o','u','h','w','y']:
+        token[i] = '0'
+    elif token[i] in ['b','f','p','v']:
+        token[i] = '1'
+    elif token[i] in ['c','g','j','k','q','s','x','z']:
+        token[i] = '2'
+    elif token[i] in ['d','t']:
+        token[i] = '3'
+    elif token[i] in ['l']:
+        token[i] = '4'
+    elif token[i] in ['m','n']:
+        token[i] = '5'
+    elif token[i] in ['r']:
+        token[i] = '6'
+result = []
+for i in range(0,len(token)):
+    if token[i] != '0':
+        result.append(token[i])
+while(len(result) < 4):
+    result.append('0')
+result = ''.join(result[:4])
+ad = []
+ad.append(result)
+print(result)
+print(ad)
+
 
 
 

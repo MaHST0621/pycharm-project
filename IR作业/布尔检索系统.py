@@ -35,8 +35,9 @@ token_rp = r'(?P<RP>\))'
 token_yy = r'(?P<YY>\")'
 token_dd = r'(?P<DD>\,)'
 token_di = r'(?P<DI>\.)'
+token_hh = r'(?P<HH>\-)'
 lexer = re.compile('|'.join([token_or, token_not, token_word,
-                            token_and, token_lp, token_rp,token_yy,token_dd,token_di]))  # 编译正则表达式
+                            token_and, token_lp, token_rp,token_yy,token_dd,token_di,token_hh]))  # 编译正则表达式
 # 用编译好的正则表达式进行词法分析
 def get_tokens(query):
     tokens = []  # tokens中的元素类型为(token, token类型)
@@ -45,7 +46,7 @@ def get_tokens(query):
     print(tokens)
     return tokens
 #创建一个字典类型记录符号权重
-token_powr = {'WORD':0,'NOT':3,'AND':2,'OR':1,'YY':0,'DD':0,'DI':0}
+token_powr = {'WORD':0,'NOT':3,'AND':2,'OR':1,'YY':0,'DD':0,'DI':0,'HH':0}
 
 
 class BoolRetrieval:
@@ -54,7 +55,7 @@ class BoolRetrieval:
     index为字典类型，其键为单词，值为文件ID列表，如{"word": [1, 2, 9], ...}
     """
 #sssssssss
-    def __init__(self, index_path='',index_double_path=''):
+    def __init__(self, index_path='',index_double_path='',index_k_path=''):
         if index_path == '':
             self.index = {}
         else:
@@ -67,6 +68,12 @@ class BoolRetrieval:
         else:
             data = np.load(index_double_path, allow_pickle=True)
             self.index_double = data['index_double'][()]
+
+        if index_k_path == '':
+            self.index_k = {}
+        else:
+            data = np.load(index_k_path, allow_pickle=True)
+            self.index_k = data['index_k'][()]
 
         self.query_tokens = []
         print(self.query_tokens)
@@ -93,12 +100,103 @@ class BoolRetrieval:
                 self.index_double.setdefault(d,{})
                 self.index_double[d].setdefault(num,[])
                 self.index_double[d][num].append(word)
-        print(self.index_double)
-        print(self.files, self.index)
-        print(self.index)
+            for word in words:
+                self.index_k_punch(word)
+        # print(self.index_double)
+        # print(self.files, self.index)
+        # print(self.index)
+        print(self.index_k)
+        np.savez('index_k.npz', index_k=self.index_k)
         np.savez('index_double.npz',index_double = self.index_double)
         np.savez('index.npz', files=self.files, index=self.index)
 
+    def index_k_punch(self,word):
+        if len(word) >= 2:
+            w = '$' + word +'$'
+            for i in range(0,len(w)-1):
+                word_k = w[i:i+2]
+                self.index_k.setdefault(word_k,[])
+                self.index_k[word_k].append(word)
+                self.index_k[word_k] = list(set(self.index_k[word_k]))
+            for i in range(0,len(w)-2):
+                word_k = w[i:i+3]
+                self.index_k.setdefault(word_k,[])
+                self.index_k[word_k].append(word)
+                self.index_k[word_k] = list(set(self.index_k[word_k]))
+
+
+    def k_punch(self,word):
+        result = []
+        if len(word) >= 2:
+            word = '$' + word +'$'
+            for i in range(0,len(word)-1):
+                word_k = word[i:i+2]
+                result.append(word_k)
+            for i in range(0,len(word)-2):
+                word_k = word[i:i+3]
+                result.append(word_k)
+        return list(set(result))
+
+    def jacarrd_k(self,token,list):
+        result = {}
+        list_1 = []
+        for i in range(0,len(list)):
+            if abs(len(list[i])-len(token)) < 3:
+                list_1.append(list[i])
+        list = list_1
+        for i in range(0,len(list)):
+            a = self.k_punch(list[i])
+            b = self.k_punch(token)
+            tmp = [c for c in a if c in b]
+            tmp_j = len(tmp)/(len(a)+len(b)-len(tmp))
+            result.setdefault(list[i],tmp_j)
+        result_0 = []
+        result = sorted(result.items(), key = lambda kc:kc[1],reverse=True)
+        for i in range(0,len(result[:3])):
+            result_0.append(result[i][0])
+        return result_0
+    def pc_soundex(self,query):
+        #print('i am colled')
+        result = self.k_punch(query)
+        result_k = []
+        print(result)
+        for i in range (0,len(result)):
+            result_k.append(self.index_k.get(result[i],[]))
+        result_k = sum(result_k,[])
+        result_k = list(set(result_k))
+        d = []
+        for i in self.jacarrd_k(query,result_k):
+            d.append(self.make_soundex(i))
+        return d
+    def make_soundex(self,token_k):
+        token = []
+        token_k = list(token_k)
+        for i in range(0, len(token_k)):
+            if token_k[i] != token_k[i - 1]:
+                token.append(token_k[i])
+        for i in range(1, len(token)):
+            if token[i] in ['a', 'e', 'i', 'o', 'u', 'h', 'w', 'y']:
+                token[i] = '0'
+            elif token[i] in ['b', 'f', 'p', 'v']:
+                token[i] = '1'
+            elif token[i] in ['c', 'g', 'j', 'k', 'q', 's', 'x', 'z']:
+                token[i] = '2'
+            elif token[i] in ['d', 't']:
+                token[i] = '3'
+            elif token[i] in ['l']:
+                token[i] = '4'
+            elif token[i] in ['m', 'n']:
+                token[i] = '5'
+            elif token[i] in ['r']:
+                token[i] = '6'
+        result = []
+        for i in range(0, len(token)):
+            if token[i] != '0':
+                result.append(token[i])
+        while (len(result) < 4):
+            result.append('0')
+        result = ''.join(result[:4])
+        return result
     def search(self, query):
         self.query_tokens = get_tokens(query)  # 获取查询的tokens
         #print(self.query_tokens)
@@ -106,6 +204,9 @@ class BoolRetrieval:
         # 将查询得到的文件ID转换成文件名
         for num in self.evaluate(0, len(self.query_tokens) - 1):
             result.append(self.files[num])
+        if result == []:
+            list1 = self.pc_soundex(self.query_tokens[0][0])
+            print('搜索的token不存在,您要搜索的或许是这些：', list1)
         return result
 
     # def phrase_dict_retr(self, biword, dict):
@@ -151,8 +252,10 @@ class BoolRetrieval:
             return []
         # 单个token，一定为查询词
         elif p == q:
-            #print(self.query_tokens[p][0])
-            #print(self.query_tokens[p][1])
+            # print(self.query_tokens[0])
+            # print(self.query_tokens)
+            # print(self.query_tokens[0][0])
+            # print(self.query_tokens[0][1])
             return self.index.get(self.query_tokens[p][0],[])
         # 去掉外层括号
         elif self.check_parentheses(p, q):
@@ -262,14 +365,16 @@ class BoolRetrieval:
 #第一次需要调用build_index()函数创建索引，之后可直接用索引文件进行初始化
 br = BoolRetrieval()
 br.build_index('text')
-br = BoolRetrieval('index.npz','index_double.npz')
+br = BoolRetrieval('index.npz','index_double.npz','index_k.npz')
 br.files
 br.index
 
 while True:
-     try:
-         query = input("请输入与查询（与&&，或||，非！）：")
-         print(br.search(query))
-     except(Exception):
-         print('请检查你的输入格式,重新输入')
+    query = input("请输入与查询（与&&，或||，非！）：")
+    print(br.search(query))
+    #  try:
+    #      query = input("请输入与查询（与&&，或||，非！）：")
+    #      print(br.search(query))
+    #  except(Exception):
+    #      print('请检查你的输入格式,重新输入')
 
