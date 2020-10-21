@@ -108,6 +108,8 @@ class BoolRetrieval:
             for word in words:
                 self.index_k_punch(word)
             for word in words:
+                if word in ['(',')','-','.',',']:
+                    continue
                 self.index_soundex.setdefault(self.make_soundex(word),[])
                 self.index_soundex[self.make_soundex(word)].append(word)
         # print(self.index_double)
@@ -180,11 +182,12 @@ class BoolRetrieval:
         # print(self.make_soundex(query))
         #print(self.index_soundex['b000'])
         if self.make_soundex(query) in self.index_soundex:
-            b = self.index_soundex[self.make_soundex(query)]
+            b = list(set(self.index_soundex[self.make_soundex(query)]))
         else:
             b = []
-        print(b)
-        return a+b
+        print(self.make_soundex(query))
+        tmp = list(set(a).union(set(b)))
+        return list(set(self.distance_k(query,tmp)))
     def distance_k(self,token,list):
         arry_k = []
         for word in list:
@@ -213,8 +216,9 @@ class BoolRetrieval:
         token = []
         token_k = list(token_k)
         for i in range(0, len(token_k)):
-            if token_k[i] != token_k[i - 1]:
-                token.append(token_k[i])
+            if token_k[i] != token_k[i - 1] :
+                if token_k[i] not in ['(',')',',','.','-']:
+                    token.append(token_k[i])
         for i in range(1, len(token)):
             if token[i] in ['a', 'e', 'i', 'o', 'u', 'h', 'w', 'y']:
                 token[i] = '0'
@@ -251,8 +255,8 @@ class BoolRetrieval:
                 print('搜索的token不存在,您要搜索的或许是这些：', list1)
             else:
                 return
-        else:
-            return result
+
+        return result
 
     # def phrase_dict_retr(self, biword, dict):
     #     if biword not in self.
@@ -274,21 +278,23 @@ class BoolRetrieval:
             # result3 = set(self.index_double[num])
             result3 = set(self.index_double.get(num,[]))
             result_2.append(result3)
-        d = result_2[0]
-        for i in range(1,len(result_2)):
-            d = d&result_2[i]
-            if len(d) == 0:
-                return []
+        if(len(result_2) > 1):
+            d = result_2[0]
+            for i in range(1,len(result_2)):
+                d = d&result_2[i]
+                if len(d) == 0:
+                    return []
         # print(d)
         # print(result_0)
-        for t in d:
-            value = self.index_double[result_0[0]][t]
-            for i in range (1,len(result_0)):
-                k = self.index_double[result_0[i]][t]
-                value = (i + 1 for i in value)
-                value = list(set(k) & set(value))
-            if len(value) != 0:
-                result.append(t)
+
+            for t in d:
+                value = self.index_double[result_0[0]][t]
+                for i in range (1,len(result_0)):
+                    k = self.index_double[result_0[i]][t]
+                    value = (i + 1 for i in value)
+                    value = list(set(k) & set(value))
+                if len(value) != 0:
+                    result.append(t)
         return result
     # 递归解析布尔表达式，p、q为子表达式左右边界的下标
     def evaluate(self, p, q):
