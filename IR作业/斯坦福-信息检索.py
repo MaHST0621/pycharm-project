@@ -5,7 +5,7 @@ import array
 import os
 import timeit
 import contextlib
-
+i = 0
 
 ##import urllib.request
 ##import zipfile
@@ -47,6 +47,8 @@ class IdMap:
     def __init__(self):
         self.str_to_id = {}
         self.id_to_str = []
+        global id_nedd
+
 
     def __len__(self):
         """Return number of terms stored in the IdMap"""
@@ -64,7 +66,11 @@ class IdMap:
         """
 
         ### Begin your code
-        return self.str_to_id.setdefault(s,self.str_to_id[s])
+        if s not in self.str_to_id.keys():
+            Id_need = len(self.id_to_str)
+            self.id_to_str.append(s)
+            return self.str_to_id.setdefault(s,Id_need)
+        return self.str_to_id[s]
         ### End your code
 
     def __getitem__(self, key):
@@ -197,7 +203,22 @@ class BSBIIndex(BSBIIndex):
     def parse_block(self, block_dir_relative):
 
         ### Begin your code
-
+        word_doc = []
+        doc_path = self.data_dir + '/' + block_dir_relative + '/'
+        for i in os.listdir(doc_path):
+            doc_id = self.doc_id_map[doc_path + i]
+            f = open(doc_path + i)
+        #     words = f.read()
+        #
+        #     for word in words:
+        #         print(word,doc_id)
+        #         word_doc.append(self.term_id_map[word],doc_id)
+        # return word_doc
+            for line in f.readlines():
+                for word in line.strip().split(' '):
+                    print(word,i)
+                    word_doc.append((self.term_id_map[word],doc_id))
+        return word_doc
         ### End your code
 
 
