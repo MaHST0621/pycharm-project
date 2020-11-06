@@ -20,27 +20,27 @@ import zipfile
 # zip_ref.close()
 
 
-try:
-    os.mkdir('output_dir')
-except FileExistsError:
-    pass
-try:
-    os.mkdir('tmp')
-except FileExistsError:
-    pass
-try:
-    os.mkdir('toy_output_dir')
-except FileExistsError:
-    pass
-
-sorted(os.listdir('pa1-data'))
-
-sorted(os.listdir('pa1-data/0'))[:10]
-
-with open('pa1-data/0/3dradiology.stanford.edu_', 'r') as f:
-    print(f.read())
-
-toy_dir = 'toy-data'
+# try:
+#     os.mkdir('output_dir')
+# except FileExistsError:
+#     pass
+# try:
+#     os.mkdir('tmp')
+# except FileExistsError:
+#     pass
+# try:
+#     os.mkdir('toy_output_dir')
+# except FileExistsError:
+#     pass
+#
+# sorted(os.listdir('pa1-data'))
+#
+# sorted(os.listdir('pa1-data/0'))[:10]
+#
+# with open('pa1-data/0/3dradiology.stanford.edu_', 'r') as f:
+#     print(f.read())
+#
+# toy_dir = 'toy-data'
 
 
 class IdMap:
@@ -73,7 +73,6 @@ class IdMap:
 
 
 class UncompressedPostings:
-
     @staticmethod
     def encode(postings_list):
 
@@ -117,8 +116,7 @@ class InvertedIndex:
             pkl.dump([self.postings_dict, self.terms], f)
 
 class BSBIIndex:
-    def __init__(self, data_dir, output_dir, index_name="BSBI",
-                 postings_encoding=None):
+    def __init__(self, data_dir, output_dir, index_name="BSBI",postings_encoding=None):
         self.term_id_map = IdMap()
         self.doc_id_map = IdMap()
         self.data_dir = data_dir
@@ -144,21 +142,13 @@ class BSBIIndex:
             td_pairs = self.parse_block(block_dir_relative)
             index_id = 'index_' + block_dir_relative
             self.intermediate_indices.append(index_id)
-            with InvertedIndexWriter(index_id, directory=self.output_dir,
-                                     postings_encoding=
-                                     self.postings_encoding) as index:
+            with InvertedIndexWriter(index_id, directory=self.output_dir,postings_encoding=self.postings_encoding) as index:
                 self.invert_write(td_pairs, index)
                 td_pairs = None
         self.save()
-        with InvertedIndexWriter(self.index_name, directory=self.output_dir,
-                                 postings_encoding=
-                                 self.postings_encoding) as merged_index:
+        with InvertedIndexWriter(self.index_name, directory=self.output_dir,postings_encoding=self.postings_encoding) as merged_index:
             with contextlib.ExitStack() as stack:
-                indices = [stack.enter_context(
-                    InvertedIndexIterator(index_id,
-                                          directory=self.output_dir,
-                                          postings_encoding=
-                                          self.postings_encoding))
+                indices = [stack.enter_context(InvertedIndexIterator(index_id,directory=self.output_dir,postings_encoding=self.postings_encoding))
                     for index_id in self.intermediate_indices]
                 self.merge(indices, merged_index)
 class BSBIIndex(BSBIIndex):
@@ -167,7 +157,7 @@ class BSBIIndex(BSBIIndex):
         doc_path = self.data_dir + '/' + block_dir_relative + '/'
         for i in os.listdir(doc_path):
             doc_id = self.doc_id_map[doc_path + i]
-            f = open(doc_path + i)
+        f = open(doc_path + i)
         for line in f.readlines():
             for terms in line.strip().split(' '):
                 print(terms, i)
@@ -176,8 +166,6 @@ class BSBIIndex(BSBIIndex):
 
 
 class InvertedIndexWriter(InvertedIndex):
-    """"""
-
     def __enter__(self):
         self.index_file = open(self.index_file_path, 'wb+')
         return self
@@ -216,7 +204,7 @@ class InvertedIndexIterator(InvertedIndex):
         if self.term_idx == len(self.terms):
             raise StopIteration
         term = self.terms[self.term_idx]
-        self.term_idx += 1
+        self.term_idx = self.term_idx + 1
         pos, length, size = self.postings_dict[term]
         self.index_file.seek(pos)
         return (term, self.postings_encoding.decode(self.index_file.read(size)))
@@ -295,12 +283,16 @@ class CompressedPostings:
             ret.insert(0, gap & 0x7f)
             gap >>= 7
         return ret
+
+    @staticmethod
     def encode(postings_list):
         encoded_postings_list = []
         encoded_postings_list += CompressedPostings.encode_int(postings_list[0])
         for i in range(1, len(postings_list)):
             encoded_postings_list += CompressedPostings.encode_int(postings_list[i] - postings_list[i - 1])
         return array.array('B', encoded_postings_list).tobytes()
+
+    @staticmethod
     def decode(encoded_postings_list):
         decoded_postings_list = array.array('B')
         decoded_postings_list.frombytes(encoded_postings_list)
@@ -330,7 +322,7 @@ class ECCompressedPostings:
         print(ret)
         return ret
 
-
+    @staticmethod
     def encode(postings_list):
         encoded_postings_list = ''
         encoded_postings_list += ECCompressedPostings.encode_int(postings_list[0] - (-1))
@@ -339,6 +331,8 @@ class ECCompressedPostings:
         print(encoded_postings_list)
         return array.array('B', [int(encoded_postings_list[x:x + 8], 2) for x in
                                  range(0, len(encoded_postings_list), 8)]).tobytes()
+
+    @staticmethod
     def decode(encoded_postings_list):
         decoded_bytes_list = array.array('B')
         decoded_bytes_list.frombytes(encoded_postings_list)
@@ -358,15 +352,14 @@ class ECCompressedPostings:
                 # '111...1(length)0xxx...x(length)', length maybe 0
                 idx = idx + 1 + length
                 gap = int('1' + decoded_postings_list[idx - length: idx], 2)
-                print(idx, gap)
                 posting = base + gap
                 postings_list.append(posting)
                 base = posting
         return postings_list
 try:
-    os.mkdir('output_dir_compressed')
+    os.mkdir('output_dir_ECCcompressed')
 except FileExistsError:
     pass
 
-BSBI_instance_compressed = BSBIIndex(data_dir='pa1-data', output_dir = 'output_dir_compressed', postings_encoding=CompressedPostings)
-BSBI_instance_compressed.retrieve('boolean retrieval')
+BSBI_instance_compressed = BSBIIndex(data_dir='pa1-data', output_dir = 'output_dir_ECCcompressed', postings_encoding=ECCompressedPostings)
+BSBI_instance_compressed.index()
