@@ -4,6 +4,7 @@ import bloompy
 import networkx as nx
 import matplotlib.pyplot as plt
 import pickle as pkl
+moudle = ["docx","jpg","articleId"]
 # 创建有向图
 G = nx.DiGraph()
 bloom_url = bloompy.ScalableBloomFilter(error_rate=0.001,initial_capacity=10**5)
@@ -23,7 +24,7 @@ def get_Continue_Url(url):
     for elem in ContinueUrl:
         if elem.get_attribute("href") not in edges.setdefault(url,[]):
             if "cc.nankai" in elem.get_attribute("href"):
-                if "articleId" not in elem.get_attribute("href"):
+                if moudle not in elem.get_attribute("href"):
                     edges[url].append(elem.get_attribute("href"))
     for elem in edges[url]:
         get_Continue_Url(elem)
