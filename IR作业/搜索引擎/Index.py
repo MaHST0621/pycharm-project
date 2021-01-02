@@ -5,14 +5,13 @@ import math
 import os
 import pickle as pkl
 import jieba.analyse as analyse
-
+module = ["学院","附件","女士","男士","姓名"]
 def get_files(dir, file_type='.txt'):
     file_list = []
     for home, dirs, files in os.walk(dir):
         for filename in files:
             if file_type in filename:
                 file_list.append(os.path.join(home,filename))
-    print(file_list)
     return file_list
 
 def get_TOP_words(file_name):
@@ -31,6 +30,8 @@ def build_index(file_path):
         if words == -1:
             continue
         for word in words:
+            if word in module:
+                continue
             result_dict.setdefault(word,[])
             result_dict[word].append(file_name[10:-4])
     file = open("words_title.index","wb")
