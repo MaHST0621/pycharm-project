@@ -48,7 +48,33 @@ class Tool_tf_idf:
                     outstr += word
                     outstr += " "
         return outstr
+    def get_wordset(self):
+        file_term_list = []
+        file_term_dic = {}
+        file_name = get_files("html_file")
+        for file in file_name:
+            file_term_dic[file] = []
+            s = open(file,"r")
+            line = self.seg_sentence(str(' '.join(jieba.cut(s.readline()))))
+            line = line.rstrip('\n')
+            words = line.split(" ")
+            for word in words:
+                if word == "":
+                    continue
+                file_term_list.append(word)
+            file_term_dic[file] = file_term_list
+            file_term_list = []
+        result = []
+        for i in file_term_dic.values():
+            if i != []:
+                result = set(result).union(i)
+        return result
 
+    def computeTF(wordSet, split):
+        tf = dict.fromkeys(wordSet, 0)
+        for word in split:
+            tf[word] += 1
+        return tf
     def Count(self,resfile):
         infile = open(resfile)
         print(resfile)
@@ -169,4 +195,4 @@ class Tool_tf_idf:
 
 if __name__ == '__main__':
     Count = Tool_tf_idf()
-    Count.Count_tf_idf_title()
+    Count.get_wordset()
