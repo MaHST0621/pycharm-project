@@ -4,6 +4,7 @@ import numpy as np
 import os
 import jieba
 import pickle as pkl
+import math
 def get_files(dir, file_type='.txt'):
     file_list = []
     for home, dirs, files in os.walk(dir):
@@ -17,26 +18,50 @@ def stopwordslist():
     stopwords = [line.strip() for line in open(file_name,encoding='UTF-8').readlines()]
     return stopwords
 
+def computeTF(wordSet, split):
+    tf = dict.fromkeys(wordSet, 0)
+    for word in split:
+        if word == "":
+            continue
+        tf[word] += 1
+    return tf
+
+def computeIDF(wordset,tfList):
+    idfDict = dict.fromkeys(wordset, 0)  # 词为key，初始值为0
+    N = len(tfList)  # 总文档数量
+    for tf in tfList:  # 遍历字典中每一篇文章
+        for word, count in tfList[tf].items():  # 遍历当前文章的每一个词
+            if count > 0:  # 当前遍历的词语在当前遍历到的文章中出现
+                idfDict[word] += 1  # 包含词项tj的文档的篇数df+1
+    for word, Ni in idfDict.items():  # 利用公式将df替换为逆文档频率idf
+        idfDict[word] = math.log10(N / Ni)  # N,Ni均不会为0
+    return idfDict  # 返回逆文档频率IDF字典
+
+def computeTFIDF(tflist, idfs):  # tf词频,idf逆文档频率
+    tfidf = {}
+    for tf in tflist:
+        tfidf[tf] = {}
+        for word, tfval in tflist[tf].items():
+            tfidf[tf][word] = tfval * idfs[word]
+    return tfidf
 class Tool_tf_idf:
-    def __init__(self,tf = "",idf = "",all_idf = "",tf_idf = "",tf_title = "",idf_title = "",all_title_idf = "",tf_idf_title = "",total_mum = "",):
+    def __init__(self,tf = "",idf = "",tf_idf = "",tf_title = "",idf_title = "",tf_idf_title = "",total_mum = "",wordset = "",wordset_title = ""):
         if tf == "":
             self.tf_dic = {}
         if idf == "":
             self.idf_dic = {}
-        if all_idf == "":
-            self.all_idf = {}
         if tf_idf == "":
             self.tf_idf = {}
+        if wordset == "":
+            self.wordset = {}
+        if wordset_title == "":
+            self.wordset_title = {}
         if tf_title == "":
             self.tf_title = {}
         if idf_title == "":
             self.idf_title = {}
-        if all_title_idf == "":
-            self.all_title_idf = {}
         if tf_idf_title == "":
             self.tf_idf_title = {}
-        if total_mum == "":
-            self.total_mum = len(get_files("html_file"))
 
     def seg_sentence(self,sentence):
         sentence_seged = jieba.cut(sentence.strip())
@@ -50,10 +75,10 @@ class Tool_tf_idf:
         return outstr
     def get_wordset(self):
         file_term_list = []
-        file_term_dic = {}
+        file_term_dic = []
+        result_list = 0
         file_name = get_files("html_file")
         for file in file_name:
-            file_term_dic[file] = []
             s = open(file,"r")
             line = self.seg_sentence(str(' '.join(jieba.cut(s.readline()))))
             line = line.rstrip('\n')
@@ -62,137 +87,125 @@ class Tool_tf_idf:
                 if word == "":
                     continue
                 file_term_list.append(word)
-            file_term_dic[file] = file_term_list
+            result_list = len(file_term_list) + result_list
+            if file_term_dic == []:
+                file_term_dic = file_term_list
+            else:
+                file_term_dic.extend(file_term_list)
             file_term_list = []
-        result = []
-        for i in file_term_dic.values():
-            if i != []:
-                result = set(result).union(i)
-        return result
+        self.wordset = set(file_term_dic)
+        # print(result_list)
+        # print(len(file_term_dic))
+        # print(file_term_dic)
+        # print(len(set(file_term_dic)))
+        #print(self.wordset)
+        pkl.dump(self.wordset,open("wordset.list","wb+"))
 
-    def computeTF(wordSet, split):
-        tf = dict.fromkeys(wordSet, 0)
-        for word in split:
-            tf[word] += 1
-        return tf
-    def Count(self,resfile):
-        infile = open(resfile)
-        print(resfile)
-        f = infile.readlines()
-        count = len(f)
-        # print(count)
-        infile.close()
-        s = open(resfile)
-        i = 0
-        while i < count:
+    def Count_tf(self):
+        self.get_wordset()
+        docs = get_files("html_file")
+        for file in docs:
+            s = open(file)
             line = self.seg_sentence(str(' '.join(jieba.cut(s.readline()))))
-            # print(line)
-            # 去换行符
             line = line.rstrip('\n')
-            # print("line",line)
             words = line.split(" ")
-            # print("words",words)
+            self.tf_dic[file] = computeTF(self.wordset,words)
+            s.close()
+        # pkl.dump(self.tf_dic,open("tf.dic","wb+"))
 
+    def Count_idf(self):
+        self.Count_tf()
+        tflist = self.tf_dic
+        self.idf_dic = computeIDF(self.wordset,tflist)
+        pkl.dump(self.idf_dic,open("idf.dic","wb+"))
+
+
+    def Count_tfidf(self):
+        self.Count_idf()
+        tf = self.tf_dic
+        idf = self.idf_dic
+        self.tf_idf = computeTFIDF(tf,idf)
+        print(self.tf_idf)
+        pkl.dump(self.tf_idf,open("tf_idf.dic","wb+"))
+
+    def get_title_wordset(self):
+        docs = get_files("html_file")
+        file_term_dic = []
+        file_term_list = []
+        for file in docs:
+            s = file[10:-4]
+            line = self.seg_sentence(str(' '.join(jieba.cut(s))))
+            line = line.rstrip('\n')
+            words = line.split(" ")
             for word in words:
                 if word == "":
                     continue
-                #print("test:", word)
-                if word not in self.tf_dic.keys():
-                    self.tf_dic[word] = 1
-                else:
-                    self.tf_dic[word] = self.tf_dic[word] + 1
-                if word not in self.idf_dic.keys():
-                    self.idf_dic[word] = 1
-                else:
-                    self.idf_dic[word] = self.idf_dic[word] + 1
-            i = i + 1
-        # 字典按键值降序
-        dic = sorted(self.tf_dic.items(), key=lambda tf_dic: tf_dic[1], reverse=True)
-        self.all_idf[resfile] = dic
-        print(self.all_idf)
-        s.close()
-        self.tf_dic = {}
+                file_term_list.append(word)
+            if file_term_dic == []:
+                file_term_dic = file_term_list
+            else:
+                file_term_dic.extend(file_term_list)
+            file_term_list = []
+        self.wordset_title = set(file_term_dic)
+        pkl.dump(self.wordset_title, open("wordset_title.list", "wb+"))
 
-    def Count_all(self):
-        for file_name in get_files("html_file"):
-            self.Count(file_name)
-        f = open("tf_alldoc.dic","wb+")
-        pkl.dump(self.all_idf,f)
-        f.close()
-        f = open("idf_alldoc.dic","wb+")
-        pkl.dump(self.idf_dic,f)
-        f.close()
-
-    def Count_title(self):
-        for home,title,file_name in os.walk("html_file"):
-            for i in range(0,len(file_name)):
-                file_name[i] = list(jieba.cut(file_name[i][:-4]))
-                for word in file_name[i]:
-                    print("test")
-                    if word == " ":
-                        continue
-                    # print("test:", word)
-                    if word not in self.tf_title.keys():
-                        self.tf_title[word] = 1
-                    else:
-                        self.tf_title[word] = self.tf_title[word] + 1
-                    if word not in self.idf_title.keys():
-                        self.idf_title[word] = 1
-                    else:
-                        self.idf_title[word] = self.idf_title[word] + 1
-                dic = sorted(self.tf_title.items(), key=lambda tf_title: tf_title[1], reverse=True)
-                self.all_title_idf[str(''.join(file_name[i]))] = dic
-                f = open("title_tf.dic","wb+")
-                pkl.dump(self.all_title_idf,f)
-                self.tf_title = {}
-                f.close()
-
-    def Count_tf_id(self):
-        f = open("tf_alldoc.dic","rb+")
-        file = open("idf_alldoc.dic","rb+")
-        f_doc = pkl.load(f)
-        file_doc = pkl.load(file)
-        for i in f_doc.keys():
-            self.tf_idf[i] = {}
-            doc_len = len(f_doc[i])
-            for j in f_doc[i]:
-                n = j[1]
-                m = file_doc[j[0]]
-                # print(n,m)
-                # print(n/doc_len * 1/(m/self.total_mum))
-                self.tf_idf[i][j[0]] = n/doc_len * 1/(m/self.total_mum)
-        file.close()
-        f.close()
-        f = open("tf_idf.dic","wb+")
-        pkl.dump(self.tf_idf,f)
-        f.close()
-    def get_idf_title(self,doc,key):
-        count = 0
-        for i in doc.keys():
-            for j in doc[i]:
-                if j[0] == key:
-                    count = count + j[1]
-        return count
-    def Count_tf_idf_title(self):
-        f = open("title_tf.dic","rb+")
-        f_doc = pkl.load(f)
-        for i in f_doc.keys():
-            if i == "":
-                continue
-            self.tf_idf_title[i] = {}
-            doc_len = len(f_doc[i])
-            for j in f_doc[i]:
-                if j[0] == "-":
+    def Count_title_tf(self):
+        self.get_title_wordset()
+        docs = get_files("html_file")
+        for file_name in docs:
+            tf = dict.fromkeys(self.wordset_title, 0)
+            title = file_name[10:-4]
+            line = self.seg_sentence(str(' '.join(jieba.cut(title))))
+            line = line.rstrip('\n')
+            words = line.split(" ")
+            dic = {}
+            for word in words:
+                if word == "":
                     continue
-                n = j[1]
-                m = self.get_idf_title(f_doc,j[0])
-                self.tf_idf_title[i][j[0]] = (n / doc_len) * (1 / (m / self.total_mum))
-        f.close()
-        f = open("tf_idf_title.dic","wb+")
-        pkl.dump(self.tf_idf_title,f)
-        f.close()
+                tf[word] += 1
+            self.tf_title[file_name] = tf
+        return self.tf_title
 
+    def Count_title_idf(self):
+        tfList = self.Count_title_tf()
+        idfDict = dict.fromkeys(self.wordset_title, 0)  # 词为key，初始值为0
+        print(self.wordset_title)
+        print(idfDict)
+        if "幸运" in idfDict.keys():
+            print("yes,init")
+        N = len(tfList)  # 总文档数量
+        for tf in tfList:  # 遍历字典中每一篇文章
+            for word, count in tfList[tf].items():  # 遍历当前文章的每一个词
+                if count > 0:  # 当前遍历的词语在当前遍历到的文章中出现
+                    idfDict[word] += 1  # 包含词项tj的文档的篇数df+1
+        print(idfDict)
+        if "幸运" in idfDict.keys():
+            print("yes,df")
+        for word, Ni in idfDict.items():  # 利用公式将df替换为逆文档频率idf
+            idfDict[word] = math.log10(N / Ni)  # N,Ni均不会为0
+        print(idfDict)
+        if "幸运" in idfDict.keys():
+            print("yes,idf")
+        self.idf_title = idfDict
+        pkl.dump(self.idf_title,open("idf_title.dic","wb+"))
+        return self.idf_title  # 返回逆文档频率IDF字典
 
+    def Count_title_tfidf(self):
+        self.Count_title_idf()
+        tfidf = {}
+        tflist = self.tf_title
+        idfs = self.idf_title
+        if "幸运" in self.idf_title.keys():
+            print("yes")
+        print(self.wordset_title)
+        for tf in tflist:
+            tfidf[tf] = {}
+            for word, tfval in tflist[tf].items():
+                tfidf[tf][word] = tfval * idfs[word]
+        self.tf_idf_title = tfidf
+        pkl.dump(self.tf_idf_title,open("title_tfidf.dic","wb+"))
+        return tfidf
 if __name__ == '__main__':
     Count = Tool_tf_idf()
-    Count.get_wordset()
+    Count.Count_tfidf()
+    Count.Count_title_tfidf()

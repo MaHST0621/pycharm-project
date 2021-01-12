@@ -3,7 +3,7 @@ import math
 import pickle as pkl
 import operator
 import numpy as np
-
+from numpy import nan as NaN
 def stopwordslist():
     file_name = "stopwords/cn_stopwords.txt"
     stopwords = [line.strip() for line in open(file_name,encoding='UTF-8').readlines()]
@@ -22,7 +22,7 @@ def seg_sentence(sentence):
 
 class Searcher:
 
-    def __init__(self, tf_idf = "",tf_idf_title = "",index = "",idf = "",index_title = ""):
+    def __init__(self,idf = "" ,tf_idf = "",tf_idf_title = "",index = "",wordset = "",title_wordset = "",index_title = "",idf_title = ""):
         if index == "":
             f = open("words_title.index","rb+")
             self.index = pkl.load(f)
@@ -36,28 +36,30 @@ class Searcher:
             self.tf_idf = pkl.load(f)
             f.close()
         if tf_idf_title == "":
-            f = open("tf_idf_title.dic","rb+")
+            f = open("title_tfidf.dic","rb+")
             self.tf_idf_title = pkl.load(f)
             f.close()
-        if tf_idf == "":
-            f = open("idf_alldoc.dic","rb+")
+        if wordset == "":
+            f = open("wordset.list","rb+")
+            self.wordset = pkl.load(f)
+            f.close()
+        if idf == "":
+            f = open("idf.dic","rb+")
             self.idf = pkl.load(f)
             f.close()
+        if idf_title == "":
+            f = open("idf_title.dic","rb+")
+            self.idf_title = pkl.load(f)
+            f.close()
+        if title_wordset == "":
+            f = open("wordset_title.list", "rb+")
+            self.wordset_list = pkl.load(f)
+            f.close()
 
-    def getCos(self, vec_c, vec_d):  # 求余弦值
+    def getCos(self, vec_a, vec_b):  # 求余弦值
         sum = 0
         sq1 = 0
         sq2 = 0
-        vec_a = []
-        vec_b = []
-        for j in vec_c.values():
-            vec_a.append(j)
-        for j in vec_d.values():
-            vec_b.append(j)
-        if len(vec_a) < len(vec_b):
-            vec_a += [0 for i in range(len(vec_b) - len(vec_a))]
-        else:
-            vec_b += [0 for i in range(len(vec_a) - len(vec_b))]
         for i in range(len(vec_a)):
             sum += float(vec_a[i]) * float(vec_b[i])
             sq1 += pow(float(vec_a[i]), 2)
@@ -73,36 +75,39 @@ class Searcher:
         words = query.split(" ")
         length = len(words) - 1
         query_tf_idf = {}
+        query_tf = dict.fromkeys(self.wordset_list,0)
         for i in words:
-            if i == " ":
+            try:
+                query_tf[i] += 1
+            except:
                 continue
-            if i in self.idf.keys():
-                m = self.idf[i]
-            else:
-                m = 1
-            N = length
-            M = len(self.idf.keys())
-            n = words.count(i)
-            query_tf_idf[i] = n/N * 1/(m/M)
+        tflist = query_tf
+        idfs = self.idf_title
+        tfidf = {}
+        for word,tfval in tflist.items():
+            tfidf[word] = tfval * idfs[word]
+        query_tf_idf = tfidf
         return query_tf_idf
 
 
     def search(self, query):
         # 计算tf-idf,找出候选doc
         re_tf_idf = {}
-        for i,j in self.tf_idf.items():
-            if i == "html_file\.txt":
+        query_tfidf = self.get_tf_idf(query)
+        for file,word in self.tf_idf_title.items():
+            if file == "html_file\.txt":
                 continue
-            if i in re_tf_idf:
-                re_tf_idf[i] += self.getCos(self.get_tf_idf(query),self.tf_idf[i])
-            else:
-                re_tf_idf[i]  = self.getCos(self.get_tf_idf(query), self.tf_idf[i])
+            re_tf_idf[file] = self.getCos(list(query_tfidf.values()),list(self.tf_idf_title[file].values()))
         # 排序
-        sorted_doc = sorted(re_tf_idf.items(), key=operator.itemgetter(0), reverse=True)
-
-        print(sorted_doc)
-
-
+        for i in re_tf_idf:
+            if math.isnan(re_tf_idf[i]):
+               re_tf_idf[i] = 0.0
+        result = sorted(re_tf_idf.items(),reverse=True,key=lambda x:x[1])
+        result_doc = []
+        for i in result:
+            if i[1] != 0.0:
+                result_doc.append(i[0])
+        print(result)
 if __name__ == '__main__':
     search = Searcher()
     query = input("请输入：")

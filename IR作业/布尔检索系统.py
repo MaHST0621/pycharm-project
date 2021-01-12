@@ -415,7 +415,7 @@ class BoolRetrieval:
 #创建布尔检索类对象¶
 #第一次需要调用build_index()函数创建索引，之后可直接用索引文件进行初始化
 br = BoolRetrieval()
-br.build_index('text')
+br.build_index('html_file')
 br = BoolRetrieval('index.npz','index_double.npz','index_k.npz','index_soundex.npz')
 br.files
 br.index
